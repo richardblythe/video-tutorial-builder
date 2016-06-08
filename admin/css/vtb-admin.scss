@@ -1,0 +1,165 @@
+.post-type-video_tutorial,
+.toplevel_page_vtb {
+  table {
+      .column-dragsort {
+        width: 20px;
+      }
+
+      .column-thumbnail {
+        width: 120px;
+        img {
+          width: 100%;
+          height: auto;
+        }
+      }
+
+      .column-watched {
+        width: 10%;
+        text-align: center;
+      }
+
+      //row columns
+
+      td.column-dragsort {
+        cursor: move;
+        &:before {
+          content: "";
+          display: none;
+          background: transparent url("../images/drag-icon.png") no-repeat scroll 0% 0%;
+          opacity: 0.8;
+          height: 40px;
+        }
+      }
+
+      td.column-watched {
+        span.watched-0 {
+           font-size: 1.2em;
+           font-weight: bold;
+         }
+      }
+
+      tr:hover td.column-dragsort:before {
+        display: block;
+      }
+  }
+}
+
+//Video Tutorial Page
+
+.vtb-description {
+  width:60%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.vtb-container {
+  position: relative;
+
+  .vtb-prev-video,
+  .vtb-next-video {
+    position: absolute;
+    top: 50%;
+    width: 120px;
+    margin-top: -60px;
+
+    h3 {
+      font-size: 1.0em;
+    }
+  }
+
+  .vtb-next-video {
+    right: 0;
+  }
+}
+
+.vtb-primary-video {
+  width: 60%;
+  margin-left: auto;
+  margin-right: auto;
+
+  .vtb-aspect-ratio {
+    position: relative;
+    padding-bottom: 56%;
+
+    .vtb-aspect-ratio-content {
+      position: absolute;
+      top: 0; bottom: 0; left: 0; right: 0;
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        max-height: 600px;
+      }
+    }
+
+  }
+}
+
+
+#vtb-settings-tabs {
+  background: transparent;
+  border: none;
+}
+#vtb-settings-tabs .ui-widget-header {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #c0c0c0;
+  -moz-border-radius: 0px;
+  -webkit-border-radius: 0px;
+  border-radius: 0px;
+}
+#vtb-settings-tabs .ui-tabs-nav .ui-state-default {
+  background: transparent;
+  border: none;
+}
+#vtb-settings-tabs .ui-tabs-nav .ui-state-active {
+  background: transparent url('../images/tabs-arrow.png') no-repeat bottom center;
+  border: none;
+}
+#vtb-settings-tabs .ui-tabs-nav .ui-state-default a {
+  color: #c0c0c0;
+}
+#vtb-settings-tabs .ui-tabs-nav .ui-state-active a {
+  color: #0073aa;
+}
+
+#vtb-settings-tabs *:focus {
+    outline: none;
+    border: none;
+    box-shadow: none;
+}
+
+
+
+@media only screen and (max-width: 1100px) {
+  .vtb-description,
+  .vtb-primary-video {
+    width: 80%;
+  }
+
+  .vtb-container {
+      .vtb-prev-video,
+      .vtb-next-video {
+        position: static;
+        margin-top: 40px;
+      }
+
+      .vtb-prev-video {
+        float: left;
+      }
+
+      .vtb-next-video {
+        float: right;
+      }
+  }
+
+  //.post-type-video_tutorial,
+  //.toplevel_page_vtb {
+  //  table {
+  //    .column-dragsort,
+  //    .column-thumbnail {
+  //      display: none;
+  //    }
+  //  }
+  //}
+}
