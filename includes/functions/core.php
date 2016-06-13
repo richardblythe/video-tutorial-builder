@@ -13,18 +13,26 @@ function vtb_tutorial_url( $post, $echo = true ) {
 	return $url;
 }
 
-function vtb_get_video_thumbnail($post) {
+function vtb_get_video_thumbnail($post, $img_tag = true) {
 	$info = vtb_get_video_info($post);
 	$info_set = is_array($info);
+	$url = '';
 	if ($info_set && 'youtube' == $info['source']) {
 		$url = "http://img.youtube.com/vi/{$info['id']}/mqdefault.jpg";
 	} else {
 		$url = vtb_plugin_url('admin/images/no-video-medium.jpg');
 	}
 
-	return $url;
+	return apply_filters('vtb_video_thumbnail', $img_tag ? '<img src="' . $url . '"/>' : $url, $post);
 }
 
+function vtb_video_thumbnail($post, $img_tag = true, $echo = true) {
+	$result = vtb_get_video_thumbnail($post, $img_tag);
+	if ($echo) {
+		echo $result;
+	}
+	return $result;
+}
 
 function vtb_get_video_info( $post ) {
 	if ($post = get_post( $post ) ) {

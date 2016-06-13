@@ -298,7 +298,7 @@ class VTB_Admin {
 		switch ( $column ) {
 			case 'thumbnail' :
 				$info = vtb_get_video_info($post_id);
-				$url = vtb_get_video_thumbnail($post_id);
+				$img = vtb_get_video_thumbnail($post_id);
 				$link = get_edit_post_link($post_id);
 
 				//render quick link info and the thumbnail column
@@ -306,7 +306,7 @@ class VTB_Admin {
             		<div style='display: none;' id='vtb_video_source_{$post_id}'>{$info['source']}</div>
 					<div style='display: none;' id='vtb_video_id_{$post_id}'>{$info['id']}</div>
 					<a href='{$link}'>
-						<img src='$url' />
+						$img
 					</a>
 				";
 				break;

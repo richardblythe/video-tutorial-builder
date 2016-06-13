@@ -9,7 +9,7 @@
  * that starts the plugin.
  *
  * @link              http://example.com
- * @since             1.1.0
+ * @since             1.1.3
  * @package           VTB
  *
  * @wordpress-plugin

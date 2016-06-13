@@ -89,7 +89,7 @@ class VTB_List_Table extends WP_List_Table
         $link = vtb_tutorial_url($post, false);
         echo "
             <a href='{$link}'>
-                <img src='$url' />
+                $url
             </a>
         ";
     }
