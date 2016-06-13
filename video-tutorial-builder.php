@@ -1,23 +1,11 @@
 <?php
 
 /**
- * The plugin bootstrap file
- *
- * This file is read by WordPress to generate the plugin information in the plugin
- * admin area. This file also includes all of the dependencies used by the plugin,
- * registers the activation and deactivation functions, and defines a function
- * that starts the plugin.
- *
- * @link              http://example.com
- * @since             1.1.4
- * @package           VTB
- *
- * @wordpress-plugin
  * Plugin Name:       Video Tutorial Builder
  * Plugin URI:        https://github.com/richardblythe/video-tutorial-builder/
  * GitHub Plugin URI: https://github.com/richardblythe/video-tutorial-builder
  * Description:       Create a customized video tutorial collection for your wordpress admin.
- * Version:           1.1.0
+ * Version:           1.1.5
  * Author:            Richard Blythe
  * Author URI:        http://unity3software.com/richardblythe/
  * License:           GPL-2.0+
