@@ -238,8 +238,9 @@ class VTB_Admin {
 	public function render_admin_notices() {
 		$screen = get_current_screen();
 		if ((isset($_GET['page']) && 0 === strpos($_GET['page'], 'vtb')) ||
-		    'video_tutorial' == $screen->post_type || vtb_tutorial_watched_any())
+		    'video_tutorial' == $screen->post_type || vtb_tutorial_watched_any()) {
 			return;
+		}
 		?>
 		<div class="update-nag">
 			<?php

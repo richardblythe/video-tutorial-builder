@@ -251,8 +251,6 @@ function vtb_youtube_api_key() {
 }
 
 function vtb_tutorial_watched_any() {
-	return false;
-	
 	$meta = get_user_meta( get_current_user_id(), 'vtb_watch_history', true );
 	$meta = maybe_unserialize( $meta );
 	return is_array($meta) && count($meta);
