@@ -203,9 +203,10 @@ class VTB {
      */
     public function register_post_type() {
         $settings = get_option('vtb_settings');
-	    $tutorial_name = !empty($settings['tutorial_name']) ? $settings['tutorial_name'] : __('Tutorials', 'vtb');
-	    $tutorial_name_single = !empty($settings['tutorial_name_single']) ? $settings['tutorial_name_single'] : __('Tutorial', 'vtb');
-
+	    $tutorial_name = !empty($settings['name']) ? $settings['name'] : __('Tutorials', 'vtb');
+	    $tutorial_name_single = !empty($settings['name_single']) ? $settings['name_single'] : __('Tutorial', 'vtb');
+		$menu_position = !empty($settings['menu_position']) ? $settings['menu_position'] : '10.3';
+	    
 	    register_post_type( 'video_tutorial', array(
             'description'           => __( 'Stores a video tutorial to be displayed in the admin', 'vtb' ), // string
             'public'                => false,
@@ -213,7 +214,7 @@ class VTB {
             'show_in_nav_menus'     => false,
             'exclude_from_search'   => true,
             'publicly_queryable'    => false,
-            'menu_position'   		=> '10.2',
+            'menu_position'   		=> $menu_position,
 			'hierarchical' 			=> false,
             'capability_type' 		=> 'post',
 //            'capabilities' => array(

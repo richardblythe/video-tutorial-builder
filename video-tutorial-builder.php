@@ -9,7 +9,7 @@
  * that starts the plugin.
  *
  * @link              http://example.com
- * @since             1.0.0
+ * @since             1.1.0
  * @package           VTB
  *
  * @wordpress-plugin
@@ -17,7 +17,7 @@
  * Plugin URI:        https://github.com/richardblythe/video-tutorial-builder/
  * GitHub Plugin URI: https://github.com/richardblythe/video-tutorial-builder
  * Description:       Create a customized video tutorial collection for your wordpress admin.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Author:            Richard Blythe
  * Author URI:        http://unity3software.com/richardblythe/
  * License:           GPL-2.0+

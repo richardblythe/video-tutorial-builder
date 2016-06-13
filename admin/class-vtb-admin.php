@@ -60,7 +60,8 @@ class VTB_Admin {
 
 	public function add_menus() {
 		$post_type = get_post_type_object('video_tutorial');
-		add_menu_page( $post_type->labels->menu_name, $post_type->labels->menu_name, 'read', 'vtb', array( &$this, 'render_tutorials' ), 'dashicons-video-alt3', '10.3' );
+
+		add_menu_page( $post_type->labels->menu_name, $post_type->labels->menu_name, 'read', 'vtb', array( &$this, 'render_tutorials' ), 'dashicons-video-alt3', $post_type->menu_position );
 		add_submenu_page( 'vtb', $post_type->labels->edit_items, $post_type->labels->edit_items, 'manage_options', 'edit.php?post_type=video_tutorial' );
 		add_submenu_page( 'vtb', __('Settings', 'vtb'), __('Settings', 'vtb'), 'manage_options', 'vtb-settings', array( &$this, 'render_settings' ) );
 
@@ -87,12 +88,12 @@ class VTB_Admin {
 		);
 
 		add_settings_field(
-			'show_watch_nag',
+			'show_watch_notice',
 			 __('Show Watch Notice', 'vtb' ),
 			array(&$this, 'settings_field_render'),
 			'vtb_settings',
 			'vtb_settings_section',
-			array('tab' => 'general', 'field' => 'show_watch_nag')
+			array('tab' => 'general', 'field' => 'show_watch_notice')
 		);
 
 		add_settings_field(
@@ -112,7 +113,16 @@ class VTB_Admin {
 			'vtb_settings_section',
 			array('tab' => 'general', 'field' => 'tutorial_name_single')
 		);
-		
+
+		add_settings_field(
+			'tutorial_menu_position',
+			__( 'Menu Position', 'vtb' ),
+			array(&$this, 'settings_field_render'),
+			'vtb_settings',
+			'vtb_settings_section',
+			array('tab' => 'general', 'field' => 'tutorial_menu_position')
+		);
+
 		//**********  Import Tab ********************
 		
 		
@@ -124,8 +134,8 @@ class VTB_Admin {
 	}
 
 	public function sanitize_settings( $settings ) {
-		if (!isset($settings['show_watch_nag']))
-			$settings['show_watch_nag'] = false;
+		if (!isset($settings['show_watch_notice']))
+			$settings['show_watch_notice'] = false;
 		return $settings;
 	}
 
@@ -140,7 +150,7 @@ class VTB_Admin {
 			die( 'Headers already sent' );
 		}
 		
-		$date = date( 'YmdHis' );
+		$date = date( 'Y-m-d-His' );
 		$download_name = "vtb-export-{$date}.json";
 
 		header( "Content-type: application/json" );
@@ -148,7 +158,10 @@ class VTB_Admin {
 		header( 'Cache-Control: no-store, no-cache' );
 
 		global $wpdb;
-		$export = array();
+		$export = array('version' => $this->version);
+
+		//Export the VTB settings
+		$export['vtb_settings'] = get_option('vtb_settings');
 
 		//Export the user data
 		$users = $wpdb->get_results("SELECT ID, user_login FROM $wpdb->users");
@@ -164,20 +177,33 @@ class VTB_Admin {
 		);
 
 		//Get all of the video_tutorial posts
-		$export['posts'] = $posts = get_posts(array(
+		$posts = get_posts(array(
 			'post_type'     => 'video_tutorial',
-			'numberposts'   => -1
+			'numberposts'   => -1,
+			'orderby'       => 'menu_order',
+			'order'         => 'ASC'
 		));
 
 		//Get all of the video_tutorial postmeta...
 		$post_ids = array();
+		$export_posts = array();
+		//use these fields to only export the relevant values, thereby reducing the exported file size
+		$export_posts_fields = apply_filters('vtb_export_post_fields', array('ID', 'post_author', 'post_date', 'post_title', 'post_content', 'menu_order'));
+		$arrPost = null;
+
 		foreach ($posts as $p) {
 			$post_ids[] = $p->ID;
+			$arrPost = (array)$p; //cast to an array
+			foreach ($export_posts_fields as $field) {
+				$export_posts[$p->ID][$field] = $arrPost[$field];
+			}
 		}
+
+		//store the exported posts
+		$export['posts'] = $export_posts;
+
 		$posts_in = implode(',', $post_ids);
-		$meta_keys = apply_filters('vtb_export_postmeta', array('video_location'));
-		$meta_keys_in = "'" . implode("','", $meta_keys) . "'";
-		$export['postmeta'] = $wpdb->get_results("SELECT * FROM {$wpdb->postmeta} WHERE post_id IN ({$posts_in}) AND meta_key IN ({$meta_keys_in})");
+		$export['postmeta'] = $wpdb->get_results("SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id IN ({$posts_in}) AND meta_key LIKE 'vtb_%'");
 
 		//now convert the array into a json format
 		$json = json_encode($export);
@@ -271,15 +297,14 @@ class VTB_Admin {
 	public function render_column( $column, $post_id) {
 		switch ( $column ) {
 			case 'thumbnail' :
-				$video_location = vtb_get_video_location($post_id);
-				if ( $id = vtb_get_video_id( $post_id ) )
-					$url = "http://img.youtube.com/vi/{$id}/2.jpg";
-				else
-					$url = vtb_plugin_url('images/sddefault.jpg');
-
+				$info = vtb_get_video_info($post_id);
+				$url = vtb_get_video_thumbnail($post_id);
 				$link = get_edit_post_link($post_id);
+
+				//render quick link info and the thumbnail column
 				echo "
-            		<div style='display: none;' id='video_location-{$post_id}'>{$video_location}</div>
+            		<div style='display: none;' id='vtb_video_source_{$post_id}'>{$info['source']}</div>
+					<div style='display: none;' id='vtb_video_id_{$post_id}'>{$info['id']}</div>
 					<a href='{$link}'>
 						<img src='$url' />
 					</a>
@@ -298,8 +323,18 @@ class VTB_Admin {
 		?>
 		<fieldset class="inline-edit-col-left">
 			<div class="inline-edit-col">
-				<span class="title">Video Location</span>
-				<input id="video_location" type="text" name="video_location" value=""/>
+				<span class="title">Video Source</span>
+				<select name="vtb_video_source">
+					<option value="youtube" selected="selected"><?php _e('Youtube', 'vtb'); ?></option>
+					<?php /*
+                        //TODO Vimeo Support
+                        <option value="vimeo" <?php selected($video_source, 'vimeo'); ?>><?php _e('Vimeo', 'vtb'); ?></option>
+                        */?>
+				</select>
+			</div>
+			<div class="inline-edit-col">
+				<span class="title">Video ID</span>
+				<input id="vtb_video_id" type="text" name="vtb_video_id" value=""/>
 			</div>
 		</fieldset>
 		<?php
@@ -351,10 +386,9 @@ class VTB_Admin {
 			wp_enqueue_script('jquery-ui-sortable');
 			wp_enqueue_script('jquery-address', plugin_dir_url( __FILE__ ) . 'js/jquery-address.min.js', array('jquery'), '1.5' );
 			wp_enqueue_script( $this->vtb, plugin_dir_url( __FILE__ ) . 'js/vtb-admin.js', array( 'jquery', 'jquery-ui-core', 'jquery-ui-sortable', 'jquery-ui-tabs', 'jquery-address' ), $this->version, false );
-			
+
 			wp_localize_script($this->vtb, 'VTB', array(
-				videoID     => vtb_get_video_id( $_GET['tutorial'] ),
-				videoSource => 'YOUTUBE', //currently only Youtube is supported.
+				videoInfo => vtb_get_video_info($_GET['tutorial']),
 				watchNonce  => wp_create_nonce('vtb_watched_video'),
 			));
 		}
@@ -409,16 +443,15 @@ class VTB_Admin {
 	public function ajax_watched_video() {
 		check_ajax_referer('vtb_watched_video', 'watchNonce');
 
-
-		if ($id = filter_input(INPUT_POST, 'videoID', FILTER_SANITIZE_STRING)) {
-
+		$info = $_REQUEST['videoInfo'];
+		if (is_array($info)) {
 			$meta = get_user_meta( get_current_user_id(), 'vtb_watch_history', true );
 			$meta = maybe_unserialize( $meta );
 			if (!is_array($meta)) {
 				$meta = array();
 			}
 
-
+			$id = $info['source'] . $info['id'];
 			$times = isset($meta[$id]) ? $meta[$id] : 0;
 			$meta[$id] = (++$times);
 
@@ -452,9 +485,9 @@ class VTB_Admin {
 			$video_id = null;
 			$video    = null;
 			if ( ( empty( $data['post_title'] ) || empty( $data['post_content'] ) ) ) {
-				$video_location = ( isset( $_REQUEST['video_location'] ) ? esc_textarea( $_REQUEST['video_location'] ) : '' );
-				$video_id       = vtb_get_video_id( $video_location );
-				$video          = $video_id ? vtb_get_video( $video_id ) : null;
+				$video_source = ( isset( $_REQUEST['vtb_video_source'] ) ? esc_textarea( $_REQUEST['vtb_video_source'] ) : '' );
+				$video_id       = ( isset( $_REQUEST['vtb_video_id'] ) ? esc_textarea( $_REQUEST['vtb_video_id'] ) : '' );
+				$video          = vtb_get_video( $video_source, $video_id );
 				if ( $video ) {
 					if ( empty( $data['post_title'] ) ) {
 						$data['post_title'] = $video->snippet->title;

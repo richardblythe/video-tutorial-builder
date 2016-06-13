@@ -18,8 +18,8 @@ class VTB_Metaboxes {
      */
     public function vtb_meta_boxes() {
         add_meta_box(
-            'video_location',
-            'Video Location',
+            'vtb_video_source',
+            'Video Info',
             array( $this, 'render_meta_boxes' ),
             'video_tutorial',
             'normal',
@@ -33,17 +33,32 @@ class VTB_Metaboxes {
      */
     function render_meta_boxes( $post ) {
         $meta = get_post_custom( $post->ID );
-        $video_location = ! isset( $meta['video_location'][0] ) ? '' : $meta['video_location'][0];
+        $vtb_video_source = ! isset( $meta['vtb_video_source'][0] ) ? '' : $meta['vtb_video_source'][0];
+        $vtb_video_id = ! isset( $meta['vtb_video_id'][0] ) ? '' : $meta['vtb_video_id'][0];
         ?>
         <table class="form-table">
-
             <tr>
                 <td class="vtb_meta_box_td" colspan="2">
-                    <label for="video_location"><?php _e( 'Location', 'vtb' ); ?>
+                    <label for="vtb_video_source"><?php _e( 'Source', 'vtb' ); ?>
                     </label>
                 </td>
                 <td colspan="4">
-                    <input type="text" name="video_location" class="regular-text" value="<?php echo $video_location; ?>">
+                    <select name="vtb_video_source">
+                        <option value="youtube" selected="selected"><?php _e('Youtube', 'vtb'); ?></option>
+                        <?php /*
+                        //TODO Vimeo Support
+                        <option value="vimeo" <?php selected($video_source, 'vimeo'); ?>><?php _e('Vimeo', 'vtb'); ?></option>
+                        */?>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="vtb_meta_box_td" colspan="2">
+                    <label for="vtb_video_id"><?php _e( 'ID', 'vtb' ); ?>
+                    </label>
+                </td>
+                <td colspan="4">
+                    <input type="text" name="vtb_video_id" class="regular-text" value="<?php echo $vtb_video_id; ?>">
                     <p class="description"><?php _e( 'The url or id of the video', 'vtb' ); ?></p>
                 </td>
             </tr>
@@ -68,8 +83,10 @@ class VTB_Metaboxes {
             return $post_id;
         }
 
-        //Update the video location field
-        $video_location = ( isset( $_POST['video_location'] ) ? esc_textarea( $_POST['video_location'] ) : '');
-        update_post_meta( $post->ID, 'video_location', $video_location );
+        //Update the video fields
+        $vtb_video_source = (isset( $_POST['vtb_video_source'] ) ? esc_textarea( $_POST['vtb_video_source'] ) : '');
+        $vtb_video_id = (isset( $_POST['vtb_video_id'] ) ? esc_textarea( $_POST['vtb_video_id'] ) : '');
+        update_post_meta( $post->ID, 'vtb_video_source', $vtb_video_source );
+        update_post_meta( $post->ID, 'vtb_video_id', $vtb_video_id );
     }
 }

@@ -13,38 +13,43 @@ function vtb_tutorial_url( $post, $echo = true ) {
 	return $url;
 }
 
-function vtb_get_video_location( $post ) {
-	$post = get_post( $post );
-	return $post ? get_post_meta( $post->ID, 'video_location', true ) : '';
+function vtb_get_video_thumbnail($post) {
+	$info = vtb_get_video_info($post);
+	$info_set = is_array($info);
+	if ($info_set && 'youtube' == $info['source']) {
+		$url = "http://img.youtube.com/vi/{$info['id']}/mqdefault.jpg";
+	} else {
+		$url = vtb_plugin_url('admin/images/no-video-medium.jpg');
+	}
+
+	return $url;
 }
 
-function vtb_get_video_id( $data ) {
-	$video_location = '';
-	if ( isset( $data ) && is_string( $data ) ) {
-		if ( strlen( $data ) == 11 || strpos( $data, 'v=' ) !== false ) {
-			$video_location = $data;
+
+function vtb_get_video_info( $post ) {
+	if ($post = get_post( $post ) ) {
+		return array(
+			'source' => get_post_meta( $post->ID, 'vtb_video_source', true ),
+			'id'     => get_post_meta( $post->ID, 'vtb_video_id', true )
+		);
+	}
+	return null;
+}
+
+function vtb_sanitize_id($video_source, $raw_video_id) {
+
+	if ('youtube' == $video_source) {
+		if ( ! empty( $raw_video_id ) ) {
+			if ( strpos( $raw_video_id, 'v=' ) !== false ) { //If it's the full url
+				parse_str( parse_url( $raw_video_id, PHP_URL_QUERY ), $my_array_of_vars ); //Strip the video ID from the URL
+				$raw_video_id = $my_array_of_vars['v'];
+			}
 		}
-	}
 
-	$post = null;
-	/*
-	 * Assume that the data passed in is to retrieve a post
-	 */
-	if ( empty( $video_location ) && $post = get_post( $data ) ) {
-		$video_location = get_post_meta( $post->ID, 'video_location', true );
+		return ( strlen( $raw_video_id ) == 11 ) ? $raw_video_id : false;
+	} else {
+		return false;
 	}
-
-	/*
-	 * If we have some data to work with, we'll try to get it stripped down to the key only
-	 */
-	if ( ! empty( $video_location ) ) {
-		if ( strpos( $video_location, 'v=' ) !== false ) { //If it's the full url
-			parse_str( parse_url( $video_location, PHP_URL_QUERY ), $my_array_of_vars ); //Strip the video ID from the URL
-			$video_location = $my_array_of_vars['v'];
-		}
-	}
-
-	return ( strlen( $video_location ) == 11 ) ? $video_location : false;
 }
 
 function vtb_get_rss_data( $cache, $transientId, $rss_url) {
@@ -59,7 +64,7 @@ function vtb_get_rss_data( $cache, $transientId, $rss_url) {
 			$response_code = wp_remote_retrieve_response_code( $videos_result );
 			if ( $response_code == 200 ) {
 
-				set_transient( $transientId, $videos_result, $cache_time * HOUR_IN_SECONDS );
+				set_transient( $transientId, $videos_result );
 			}
 		}
 
@@ -82,95 +87,122 @@ function vtb_get_rss_data( $cache, $transientId, $rss_url) {
  *
  * @return mixed|string|null Returns the video data on success, null on failure
  */
-function vtb_get_video( $video_id ) {
+function vtb_get_video( $info, $id ) {
 	$key = vtb_youtube_api_key();
 	if (is_wp_error($key))
 		return $key;
 
-	$result = vtb_get_rss_data( false, '', 'https://www.googleapis.com/youtube/v3/videos'
-	                                       . '?part=snippet'
-	                                       . '&id=' . $video_id
-	                                       . '&key=' . $key
-	);
+	if (isset($info) && isset($id))
+		$info = array('source' => $info, 'id' => $id);
 
-	$json = json_decode( $result['body'] );
-	if (isset($json->error)) {
-		//return a nice clean Wordpress error. ;)
-		return new WP_Error(
-			$json->error->code,
-			sprintf(__('Could not retrieve video: %s', 'vtb'), $json->error->errors[0]->reason),
-			$json->error);
+	if (!(isset($info) && isset($info['source']) && isset($info['id']))) {
+		return new WP_Error(400, 'Video info is invalid', $info);
 	}
-	return $json->items[0];
-}
+	
+	if ('youtube' == $info['source']) {
+		$result = vtb_get_rss_data( false, '', 'https://www.googleapis.com/youtube/v3/videos'
+		                                       . '?part=snippet'
+		                                       . '&id=' . $info['id']
+		                                       . '&key=' . $key
+		);
 
-function vtb_get_videos( $playlist_id ) {
-	$key = vtb_youtube_api_key();
-	if (is_wp_error($key))
-		return $key;
-
-	$result = vtb_get_rss_data( false, '', 'https://www.googleapis.com/youtube/v3/playlistItems'
-	                                       . '?part=snippet'
-	                                       . '&maxResults=50'
-	                                       . '&playlistId=' . $playlist_id
-	                                       . '&key=' . $key
-	);
-
-	$json = json_decode( $result['body'] );
-	if (isset($json->error)) {
-		//return a nice clean Wordpress error. ;)
-		return new WP_Error(
-			$json->error->code,
-			sprintf( __( 'Could not retrieve playlist: %s', 'vtb' ),
-			$json->error->errors[0]->reason ), $json->error );
-	}
-	//else
-	return $json->items;
-}
-
-function vtb_import($import_type, $data, $overwrite) {
-	if (empty($data)) return false;
-	if (!in_array($import_type, array('vtb-json', 'youtube-playlist')))
-		return new WP_Error(400, __('You must specify a valid data type to import', 'vtb'));
-
-	global $wpdb;
-	$menu_order = 0;
-	if ($overwrite) {
-		if ($IDs = $wpdb->get_col("SELECT ID FROM $wpdb->posts WHERE post_type = 'video_tutorial'")) {
-			$IDs = apply_filters('vtb_delete_posts', $IDs);
-			$sql_in = implode(',', $IDs);
-			$wpdb->query("DELETE FROM $wpdb->posts WHERE ID IN ($sql_in)");
-			$wpdb->query("DELETE FROM $wpdb->postmeta WHERE post_id IN ($sql_in)");
+		$json = json_decode( $result['body'] );
+		if (isset($json->error)) {
+			//return a nice clean Wordpress error. ;)
+			return new WP_Error(
+				$json->error->code,
+				sprintf(__('Could not retrieve video: %s', 'vtb'), $json->error->errors[0]->reason),
+				$json->error);
 		}
-	} else {
-		$menu_order = $wpdb->get_var("SELECT menu_order FROM $wpdb->posts WHERE post_type = 'video_tutorial' ORDER BY menu_order DESC LIMIT 1");
+		return $json->items[0];
+
 	}
 
-	//import
-
-	if ('vtb' == $import_type) {
-	    return	_vtb_import_file($data, $menu_order);
-	} else if ('youtube-playlist' == $import_type) {
-		return _vtb_import_youtube_playlist($data, $menu_order);
-	} else {
-		return new WP_Error(400, __('You must specify a valid data type to import', 'vtb'));
-	}
+	//else
+	return new WP_Error('501', 'The video source is not supported', $info);
 }
 
-function _vtb_import_file($data, $menu_order) {
+function vtb_get_videos( $info, $id ) {
+	$key = vtb_youtube_api_key();
+	if (is_wp_error($key))
+		return $key;
+
+	if (isset($info) && isset($id))
+		$info = array('source' => $info, 'id' => $id);
+
+	if (!(isset($info) && isset($info['source']) && isset($info['id']))) {
+		return new WP_Error(400, 'Video info is invalid', $info);
+	}
+
+	if ('youtube' == $info['source']) {
+
+		$result = vtb_get_rss_data( false, '', 'https://www.googleapis.com/youtube/v3/playlistItems'
+		                                       . '?part=snippet'
+		                                       . '&maxResults=50'
+		                                       . '&playlistId=' . $info['id']
+		                                       . '&key=' . $key
+		);
+
+		$json = json_decode( $result['body'] );
+		if ( isset( $json->error ) ) {
+			//return a nice clean Wordpress error. ;)
+			return new WP_Error(
+				$json->error->code,
+				sprintf( __( 'Could not retrieve playlist: %s', 'vtb' ),
+					$json->error->errors[0]->reason ), $json->error );
+		}
+
+		//else
+		return $json->items;
+	}
+
+	//else
+	return new WP_Error('501', 'The video source is not supported', $info);
+}
+
+function _vtb_import_file($file, $import_options, $menu_order) {
+	if ($file['size'] == 0) {
+		return new WP_Error(204, __('No file was uploaded', 'vtb'));
+	}
+
+	try {
+		$raw = file_get_contents($file['tmp_name']);
+		$data = json_decode($raw, true);
+	} catch (Exception $e) {
+		return new WP_Error($e->getCode(), __('Error in parsing import file.', 'vtb', $e));
+	}
+
+
+	//import general settings
+	if (isset($import_options) && count($import_options) && isset($data['vtb_settings'])) {
+		$new_settings = array();
+
+		foreach ($import_options as $opt) {
+			 $new_settings[$opt] = $data['vtb_settings'][$opt];
+		}
+
+		$prev_settings = get_option('vtb_settings');
+		if (!is_array($prev_settings)) {
+			$prev_settings = array();
+		}
+		update_option('vtb_settings', array_merge($prev_settings, $new_settings));
+	}
+
+
 	$id_map = array();
-	foreach ($data['posts'] as $post) {
-		$ID = $post->ID;
-		unset($post->ID);
-		$post->menu_order = $menu_order + (int)$post->menu_order;
-		
+	foreach ($data['posts'] as $post_id => $post) {
+		unset($post['ID']);//make sure that the post id is not set.  we are adding here, not updating
+		$post['post_type']   = 'video_tutorial';
+		$post['post_status'] = 'publish';
+		$post['menu_order']  = $menu_order + (int)$post['menu_order'];
+
 		$insert_id = wp_insert_post($post);
-		$id_map[$ID] = $insert_id;
+		$id_map[$post_id] = $insert_id;
 	}
 
 	//import the user data
-	$user_map = $data->user_data['users'];
-	foreach ($data->user_data['usermeta'] as $meta) {
+	$user_map = $data['user_data']['users'];
+	foreach ($data['user_data']['usermeta'] as $meta) {
 		if ($user = get_user_by('login', $user_map[$meta['user_id']]))
 			add_user_meta($user->ID, 'video_tutorials', $id_map[$meta['post_id']], $meta['meta_key'], $meta['meta_value'], true);
 	}
@@ -193,7 +225,8 @@ function _vtb_import_youtube_playlist($playlist, $menu_order) {
 			'post_date'    => $item->snippet->publishedAt,
 			'menu_order'   => $menu_order + (int)$item->snippet->position
 		));
-		add_post_meta($id, 'video_location', $item->snippet->resourceId->videoId);
+		add_post_meta($id, 'vtb_video_source', 'youtube');
+		add_post_meta($id, 'vtb_video_id', $item->snippet->resourceId->videoId);
 	}
 	return true;
 }
@@ -226,6 +259,7 @@ function vtb_tutorial_watched( $post ) {
 		$vtb_user_watched = (is_array($meta) ? $meta : array());
 	}
 
-	$video_id = vtb_get_video_id($post);
+	$info = vtb_get_video_info($post);
+	$video_id = $info['source'] . $info['id'];
 	return isset($vtb_user_watched[$video_id]) ? $vtb_user_watched[$video_id] : 0;
 }

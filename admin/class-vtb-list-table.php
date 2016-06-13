@@ -84,10 +84,7 @@ class VTB_List_Table extends WP_List_Table
     }
 
     function column_thumbnail($post) {
-        if ( $id = vtb_get_video_id( $post ) )
-            $url = "http://img.youtube.com/vi/{$id}/mqdefault.jpg";
-        else
-            $url = vtb_plugin_url('images/no-video-medium.jpg');
+        $url = vtb_get_video_thumbnail($post);
 
         $link = vtb_tutorial_url($post, false);
         echo "
